@@ -1,0 +1,174 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IContactClientService ContactService
+@inject IAuthClientService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard — Contact Manager</PageTitle>
+
+@if (!isRendered)
+{
+    <LoadingSpinner />
+}
+else if (!isAuthenticated)
+{
+    <div class="text-center py-5">
+        <p>Redirecting...</p>
+    </div>
+}
+else
+{
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">My Contacts</h1>
+        <a href="/contacts/add" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="me-1">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Add Contact
+        </a>
+    </div>
+
+    <div class="search-bar mb-4">
+        <div class="input-group">
+            <span class="input-group-text">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+                </svg>
+            </span>
+            <input type="text" class="form-control" placeholder="Search by name, phone, or email..."
+                   value="@searchQuery" @oninput="OnSearchInput" />
+            @if (!string.IsNullOrEmpty(searchQuery))
+            {
+                <button class="btn btn-outline-secondary" @onclick="ClearSearch">Clear</button>
+            }
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <LoadingSpinner />
+    }
+    else if (!contacts.Any())
+    {
+        @if (string.IsNullOrEmpty(searchQuery))
+        {
+            <EmptyState Title="No contacts yet"
+                        Message="Start building your contact list by adding your first contact."
+                        ActionLabel="Add First Contact"
+                        ActionCallback="@(() => Nav.NavigateTo("/contacts/add"))" />
+        }
+        else
+        {
+            <EmptyState Title="No contacts found"
+                        Message="@($"No contacts matched \"{searchQuery}\". Try a different search term.")"
+                        ActionLabel="Clear Search"
+                        ActionCallback="@ClearSearch" />
+        }
+    }
+    else
+    {
+        <div class="contacts-list">
+            @foreach (var contact in contacts)
+            {
+                <ContactCard Contact="contact" OnDelete="ConfirmDelete" />
+            }
+        </div>
+    }
+
+    @if (showDeleteDialog && contactToDelete is not null)
+    {
+        <DeleteConfirmationDialog ContactName="@contactToDelete.Name"
+                                   IsLoading="isDeleting"
+                                   OnConfirm="ExecuteDelete"
+                                   OnCancel="CancelDelete" />
+    }
+}
+
+@code {
+    private List<ContactDto> contacts = new();
+    private string searchQuery = string.Empty;
+    private bool isLoading = true;
+    private bool isAuthenticated;
+    private bool isRendered;
+    private bool showDeleteDialog;
+    private bool isDeleting;
+    private ContactDto? contactToDelete;
+    private System.Timers.Timer? debounceTimer;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        isRendered = true;
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        await LoadContacts();
+        StateHasChanged();
+    }
+
+    private async Task LoadContacts(string? query = null)
+    {
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var result = await ContactService.GetAllAsync(query);
+            contacts = result.ToList();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? string.Empty;
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.Elapsed += async (_, _) =>
+        {
+            debounceTimer?.Dispose();
+            await InvokeAsync(async () =>
+            {
+                await LoadContacts(string.IsNullOrWhiteSpace(searchQuery) ? null : searchQuery);
+                StateHasChanged();
+            });
+        };
+        debounceTimer.AutoReset = false;
+        debounceTimer.Start();
+    }
+
+    private async Task ClearSearch()
+    {
+        searchQuery = string.Empty;
+        await LoadContacts();
+    }
+
+    private void ConfirmDelete(ContactDto contact)
+    {
+        contactToDelete = contact;
+        showDeleteDialog = true;
+    }
+
+    private void CancelDelete()
+    {
+        contactToDelete = null;
+        showDeleteDialog = false;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (contactToDelete is null) return;
+        isDeleting = true;
+        var deleted = await ContactService.DeleteAsync(contactToDelete.Id);
+        if (deleted)
+            contacts.Remove(contactToDelete);
+        isDeleting = false;
+        showDeleteDialog = false;
+        contactToDelete = null;
+    }
+}

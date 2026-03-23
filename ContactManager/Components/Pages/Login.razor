@@ -1,0 +1,84 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject IAuthClientService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Login — Contact Manager</PageTitle>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h1 class="auth-title">Sign In</h1>
+        <p class="auth-subtitle">Welcome back! Please sign in to your account.</p>
+
+        <EditForm Model="model" OnValidSubmit="HandleLogin" FormName="LoginForm">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email address</label>
+                <InputText id="email" @bind-Value="model.Email" class="form-control"
+                           type="email" placeholder="you@example.com" autocomplete="email" />
+                <ValidationMessage For="() => model.Email" class="text-danger small" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <InputText id="password" @bind-Value="model.Password" class="form-control"
+                           type="password" placeholder="Enter your password" autocomplete="current-password" />
+                <ValidationMessage For="() => model.Password" class="text-danger small" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Sign In
+            </button>
+        </EditForm>
+
+        <div class="auth-footer">
+            Don't have an account? <a href="/register">Create one</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest model = new();
+    private string? errorMessage;
+    private bool isLoading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (await AuthService.IsAuthenticatedAsync())
+            Nav.NavigateTo("/");
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(model);
+            if (result is not null)
+                Nav.NavigateTo("/");
+            else
+                errorMessage = "Invalid email or password. Please try again.";
+        }
+        catch
+        {
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

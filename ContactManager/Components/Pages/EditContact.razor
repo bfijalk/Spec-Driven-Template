@@ -1,0 +1,132 @@
+@page "/contacts/edit/{Id:int}"
+@rendermode InteractiveServer
+@inject IContactClientService ContactService
+@inject IAuthClientService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Edit Contact — Contact Manager</PageTitle>
+
+<div class="form-page">
+    <div class="form-page-header">
+        <a href="/" class="btn btn-outline-secondary btn-sm">
+            &larr; Back
+        </a>
+        <h2 class="form-page-title">Edit Contact</h2>
+    </div>
+
+    @if (isLoadingContact)
+    {
+        <LoadingSpinner />
+    }
+    else if (model is null)
+    {
+        <div class="alert alert-warning">Contact not found.</div>
+    }
+    else
+    {
+        <div class="form-card">
+            <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="EditContactForm">
+                <DataAnnotationsValidator />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+
+                <div class="mb-3">
+                    <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                    <InputText id="name" @bind-Value="model.Name" class="form-control" />
+                    <ValidationMessage For="() => model.Name" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Phone Number</label>
+                    <InputText id="phone" @bind-Value="model.Phone" class="form-control" type="tel" />
+                    <ValidationMessage For="() => model.Phone" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address</label>
+                    <InputText id="email" @bind-Value="model.Email" class="form-control" type="email" />
+                    <ValidationMessage For="() => model.Email" class="text-danger small" />
+                </div>
+
+                <div class="mb-4">
+                    <label for="notes" class="form-label">Notes</label>
+                    <InputTextArea id="notes" @bind-Value="model.Notes" class="form-control" rows="3" />
+                    <ValidationMessage For="() => model.Notes" class="text-danger small" />
+                </div>
+
+                <div class="form-actions">
+                    <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        Save Changes
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private UpdateContactRequest? model;
+    private string? errorMessage;
+    private bool isLoading;
+    private bool isLoadingContact = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (!await AuthService.IsAuthenticatedAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var contact = await ContactService.GetByIdAsync(Id);
+        if (contact is not null)
+        {
+            model = new UpdateContactRequest
+            {
+                Name = contact.Name,
+                Phone = contact.Phone,
+                Email = contact.Email,
+                Notes = contact.Notes
+            };
+        }
+
+        isLoadingContact = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (model is null) return;
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await ContactService.UpdateAsync(Id, model);
+            if (result is not null)
+                Nav.NavigateTo("/");
+            else
+                errorMessage = "Failed to update contact. Please try again.";
+        }
+        catch
+        {
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

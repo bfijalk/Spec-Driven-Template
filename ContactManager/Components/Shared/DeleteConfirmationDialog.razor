@@ -1,0 +1,25 @@
+@rendermode InteractiveServer
+
+<div class="delete-dialog-overlay" @onclick="OnCancel">
+    <div class="delete-dialog" @onclick:stopPropagation="true">
+        <h5 class="delete-dialog-title">Delete Contact</h5>
+        <p>Are you sure you want to delete <strong>@ContactName</strong>? This cannot be undone.</p>
+        <div class="delete-dialog-actions">
+            <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+            <button class="btn btn-danger" @onclick="OnConfirm" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                }
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string ContactName { get; set; } = string.Empty;
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

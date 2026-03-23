@@ -1,0 +1,25 @@
+# .NET build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# NuGet
+*.nupkg
+packages/
+
+# Rider / VS / VS Code
+.idea/
+.vscode/
+*.DotSettings.user
+
+# Secrets & env
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+*.pfx
+*.p12
+
+# macOS
+.DS_Store

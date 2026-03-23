@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ContactManager.Api/ContactManager.Api.csproj" />
+  <Project Path="ContactManager.Common/ContactManager.Common.csproj" />
+  <Project Path="ContactManager.Database/ContactManager.Database.csproj" />
+  <Project Path="ContactManager.Tests/ContactManager.Tests.csproj" />
+  <Project Path="ContactManager/ContactManager.csproj" />
+</Solution>
